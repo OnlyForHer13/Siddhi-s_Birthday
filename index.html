@@ -6,11 +6,11 @@
 <!-- Security: restrict resource origins and block framing/sniffing -->
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'self';
-           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com;
+           script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://www.gstatic.com https://*.firebaseio.com;
            style-src  'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com;
            font-src   'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com;
            img-src    'self' data: https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://*.basemaps.cartocdn.com https://cartodb-basemaps-a.global.ssl.fastly.net https://cartodb-basemaps-b.global.ssl.fastly.net https://cartodb-basemaps-c.global.ssl.fastly.net https://cartodb-basemaps-d.global.ssl.fastly.net;
-           connect-src 'self' https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org;
+           connect-src 'self' https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://api.bigdatacloud.net https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com;
            object-src 'none';
            frame-ancestors 'none';">
 <meta http-equiv="X-Content-Type-Options" content="nosniff">
@@ -3465,6 +3465,189 @@
     position: relative;
   }
 
+  /* Live location sharing panel */
+  .live-share-frame {
+    background: rgba(255,253,248,0.85);
+    border: 1px solid rgba(183,110,121,0.25);
+    border-radius: 20px;
+    padding: 1.2rem 1.4rem;
+    margin-bottom: 1.2rem;
+    box-shadow: 0 14px 40px rgba(183,110,121,0.12);
+  }
+
+  .live-share-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.8rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .live-share-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    color: var(--text-dark);
+    font-size: 1rem;
+  }
+
+  .live-share-status {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(168,128,144,0.15);
+    color: var(--text-light);
+  }
+
+  .live-share-status.on {
+    background: rgba(90,144,96,0.18);
+    color: #3f7546;
+  }
+
+  .live-pin-gate {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  #livePinInput {
+    flex: 1;
+    min-width: 160px;
+    padding: 0.7rem 1rem;
+    border-radius: 12px;
+    border: 1.5px solid rgba(183,110,121,0.3);
+    background: rgba(255,253,248,0.9);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9rem;
+    color: var(--text-dark);
+    letter-spacing: 2px;
+    outline: none;
+  }
+
+  #livePinInput:focus {
+    border-color: var(--rose-gold);
+    box-shadow: 0 0 0 3px rgba(183,110,121,0.15);
+  }
+
+  #livePinBtn, .live-toggle-btn {
+    padding: 0.7rem 1.2rem;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--rose-gold), var(--rose-gold-light));
+    color: #fff;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 6px 18px rgba(183,110,121,0.3);
+  }
+
+  #livePinBtn:hover, .live-toggle-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+
+  .live-toggle-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .live-toggle-btn.sharing {
+    background: linear-gradient(135deg, #5a9060, #7ab183);
+  }
+
+  .live-pin-error {
+    width: 100%;
+    font-size: 0.75rem;
+    color: #c0392b;
+    min-height: 1em;
+  }
+
+  .live-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .live-who {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.8rem;
+    color: var(--text-mid);
+  }
+
+  .live-who-btn {
+    padding: 0.45rem 0.9rem;
+    border-radius: 999px;
+    border: 1.5px solid rgba(183,110,121,0.3);
+    background: rgba(255,253,248,0.9);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: var(--text-mid);
+    transition: all 0.2s;
+  }
+
+  .live-who-btn.active {
+    background: linear-gradient(135deg, var(--rose-gold), var(--rose-gold-light));
+    color: #fff;
+    border-color: transparent;
+  }
+
+  .live-who-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .live-hint {
+    font-size: 0.72rem;
+    color: var(--text-light);
+    line-height: 1.5;
+  }
+
+  .live-marker-tag {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.62rem;
+    white-space: nowrap;
+  }
+
+  /* Pulsing "live" pin marker */
+  .live-pulse-wrap { position: relative; }
+  .live-pulse-ring {
+    position: absolute;
+    left: 50%;
+    top: 36.5%;
+    width: 20px;
+    height: 20px;
+    margin-left: -10px;
+    margin-top: -10px;
+    border-radius: 50%;
+    opacity: 0.55;
+    z-index: 1;
+    animation: livePulseAnim 1.8s ease-out infinite;
+  }
+  @keyframes livePulseAnim {
+    0%   { transform: scale(0.55); opacity: 0.6; }
+    70%  { transform: scale(2.6);  opacity: 0; }
+    100% { transform: scale(2.6);  opacity: 0; }
+  }
+  .dist-value.is-live {
+    color: #3f7546;
+  }
+  .dist-sub.is-live {
+    color: #3f7546;
+    font-weight: 600;
+  }
+
   #leaflet-map {
     height: 500px;
     width: 100%;
@@ -5871,6 +6054,9 @@
 <!-- OUR MAP -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 
 <section id="ourmap">
   <p class="section-label">Places &amp; Memories</p>
@@ -5883,21 +6069,45 @@
     <!-- Distance ribbon -->
     <div class="dist-ribbon">
       <div class="dist-card">
-        <div class="dist-label">📍 You are here</div>
-        <div class="dist-value" style="font-size:1rem;color:var(--rose-gold);">Kota, Rajasthan</div>
-        <div class="dist-sub">Your Home 🏠</div>
+        <div class="dist-label" id="distYouLabel">📍 You are here</div>
+        <div class="dist-value" id="distYouCity" style="font-size:1rem;color:var(--rose-gold);">–</div>
+        <div class="dist-sub" id="distYouSub">Location not shared yet</div>
       </div>
       <div class="dist-heart">♡</div>
       <div class="dist-card">
-        <div class="dist-label">Distance between us</div>
-        <div class="dist-value">~650 km</div>
-        <div class="dist-sub">as the crow flies ✈</div>
+        <div class="dist-label" id="distMainLabel">Distance between us</div>
+        <div class="dist-value" id="distValueMain">–</div>
+        <div class="dist-sub" id="distSubMain">share location to see live distance</div>
       </div>
       <div class="dist-heart">♡</div>
       <div class="dist-card">
-        <div class="dist-label">📍 She is here</div>
-        <div class="dist-value" style="font-size:1rem;color:var(--rose-gold);">Kanpur, UP</div>
-        <div class="dist-sub">Her City 🌸</div>
+        <div class="dist-label" id="distHerLabel">📍 She is here</div>
+        <div class="dist-value" id="distHerCity" style="font-size:1rem;color:var(--rose-gold);">–</div>
+        <div class="dist-sub" id="distHerSub">Location not shared yet</div>
+      </div>
+    </div>
+
+    <!-- Live Location Sharing Panel -->
+    <div class="live-share-frame" id="liveShareFrame">
+      <div class="live-share-header">
+        <span class="live-share-title">💞 Live Location Sharing</span>
+        <span class="live-share-status" id="liveShareStatus">Off</span>
+      </div>
+
+      <div id="livePinGate" class="live-pin-gate">
+        <input type="password" id="livePinInput" placeholder="Enter shared PIN" autocomplete="off" inputmode="numeric"/>
+        <button id="livePinBtn">Unlock Sharing</button>
+        <div class="live-pin-error" id="livePinError"></div>
+      </div>
+
+      <div id="liveControls" class="live-controls" style="display:none;">
+        <div class="live-who">
+          <span>I am:</span>
+          <button class="live-who-btn" id="liveWhoYou" data-who="you">🏠 You (Kota)</button>
+          <button class="live-who-btn" id="liveWhoHer" data-who="her">🌸 Her (Kanpur)</button>
+        </div>
+        <button id="liveToggleBtn" class="live-toggle-btn" disabled>Start Sharing My Location</button>
+        <div class="live-hint" id="liveHint">Pick who you are, then start sharing. Keep this tab open for continuous tracking.</div>
       </div>
     </div>
 
@@ -6768,6 +6978,7 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
     scrollWheelZoom: false,
     preferCanvas: true
   });
+  window.__memoryMap = map;
 
   // Force-fit both cities into view after tiles load
   const bounds = L.latLngBounds(
@@ -6831,6 +7042,7 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
       popupAnchor: [0, -(size+10)]
     });
   }
+  window.__makeMapPinIcon = makeIcon;
 
   // ── Popup HTML builder ──
   function popup(badge, title, sub, text, tags) {
@@ -6887,45 +7099,631 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
       ['School Days', 'VSEC Avadh Puri', 'Kanpur Memories', 'Corridors & Conversations']
     ), { maxWidth: 260 });
 
-  // ── Animated dashed line between Kota & Kanpur ──
+  // ── Animated dashed line between Kota & Kanpur (live-updatable) ──
   const kota   = [25.2138, 75.8648];
   const kanpur = [26.4499, 80.3319];
 
-  // Solid gentle arc line
-  L.polyline([kota, kanpur], {
+  // Haversine great-circle distance in km, exposed globally
+  function haversineKm(a, b) {
+    const R = 6371;
+    const dLat = (b[0] - a[0]) * Math.PI / 180;
+    const dLng = (b[1] - a[1]) * Math.PI / 180;
+    const lat1 = a[0] * Math.PI / 180;
+    const lat2 = b[0] * Math.PI / 180;
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  }
+  window.__haversineKm = haversineKm;
+
+  // Dashed connector line between "you" and "her" — only drawn once BOTH
+  // people are actively sharing their live location (see
+  // window.__updateDistanceVisual below). It is intentionally NOT added to
+  // the map yet, and does NOT default to the two home pins.
+  const distanceLine = L.polyline([kota, kanpur], {
     color: '#B76E79',
     weight: 2.5,
     opacity: 0.55,
     dashArray: '10, 8',
     lineJoin: 'round'
-  }).addTo(map);
+  });
 
-  // Midpoint distance label
-  const mid = [(kota[0]+kanpur[0])/2, (kota[1]+kanpur[1])/2];
-  L.marker(mid, {
-    icon: L.divIcon({
+  // Floating distance badge that rides the midpoint of that line — also
+  // withheld from the map until both live positions are known.
+  const distanceLabel = L.marker(midpoint(kota, kanpur), {
+    icon: distanceDivIcon('–', false),
+    interactive: false
+  });
+
+  function midpoint(a, b) {
+    return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+  }
+
+  function distanceDivIcon(text, isLive) {
+    return L.divIcon({
       html: `<div style="
         background:rgba(255,253,248,0.96);
-        border:1.5px solid rgba(183,110,121,0.35);
+        border:1.5px solid ${isLive ? 'rgba(90,144,96,0.45)' : 'rgba(183,110,121,0.35)'};
         border-radius:14px;
         padding:4px 12px;
         font-family:'Montserrat',sans-serif;
         font-size:0.65rem;
         font-weight:600;
         letter-spacing:1.5px;
-        color:#8B4F58;
+        color:${isLive ? '#3f7546' : '#8B4F58'};
         white-space:nowrap;
         box-shadow:0 4px 14px rgba(183,110,121,0.18);
         text-transform:uppercase;
-      ">♡ &nbsp; ~650 km apart &nbsp; ♡</div>`,
+      ">${isLive ? '🔴 &nbsp;' : '♡ &nbsp;'}${text}${isLive ? '' : ' &nbsp; ♡'}</div>`,
       className: '',
       iconAnchor: [60, 12]
-    })
-  }).addTo(map);
+    });
+  }
+
+  // Called by the live-location module whenever either pin's live status
+  // changes. Only draws/updates the line + distance once BOTH youPos and
+  // herPos are real live positions (bothLive === true). Otherwise the
+  // connector is hidden entirely and the UI falls back to "–".
+  window.__updateDistanceVisual = function (youPos, herPos, bothLive) {
+    const valueEl = document.getElementById('distValueMain');
+    const subEl   = document.getElementById('distSubMain');
+
+    if (!bothLive || !youPos || !herPos) {
+      if (map.hasLayer(distanceLine))  map.removeLayer(distanceLine);
+      if (map.hasLayer(distanceLabel)) map.removeLayer(distanceLabel);
+      if (valueEl) { valueEl.textContent = '–'; valueEl.classList.remove('is-live'); }
+      if (subEl)   { subEl.textContent = 'share location to see live distance'; subEl.classList.remove('is-live'); }
+      return;
+    }
+
+    distanceLine.setLatLngs([youPos, herPos]);
+    if (!map.hasLayer(distanceLine)) distanceLine.addTo(map);
+
+    const km = haversineKm(youPos, herPos);
+    const label = 'Live · ' + km.toFixed(1) + ' km apart';
+    distanceLabel.setLatLng(midpoint(youPos, herPos));
+    distanceLabel.setIcon(distanceDivIcon(label, true));
+    if (!map.hasLayer(distanceLabel)) distanceLabel.addTo(map);
+
+    // Keep the dist-ribbon cards in the page header in sync too
+    if (valueEl) { valueEl.textContent = km.toFixed(1) + ' km'; valueEl.classList.add('is-live'); }
+    if (subEl)   { subEl.textContent = '🔴 live distance'; subEl.classList.add('is-live'); }
+  };
 
 })();
 
-// ─── SPECIAL DATES COUNTDOWN ───
+// ─── LIVE LOCATION SHARING (Firebase Realtime Database) ───
+(function initLiveSharing() {
+
+  // ====================================================================
+  // 1) FILL IN YOUR OWN FIREBASE CONFIG BELOW.
+  //    Get this for free at https://console.firebase.google.com
+  //    -> Create a project -> Build > Realtime Database -> Create Database
+  //    -> Project settings (gear icon) -> General -> "Your apps" -> Web app
+  //    Paste the firebaseConfig object it gives you here:
+  // ====================================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyBGb9fiYK-8MYTOBpfpfM7tlsL3-bNHQJg",
+    authDomain: "realtime-87ee5.firebaseapp.com",
+    databaseURL: "https://realtime-87ee5-default-rtdb.firebaseio.com",
+    projectId: "realtime-87ee5",
+    storageBucket: "realtime-87ee5.firebasestorage.app",
+    messagingSenderId: "496502247583",
+    appId: "1:496502247583:web:175f787c3cdabc6bcdd2aa",
+    measurementId: "G-GHMHJ0R1S7"
+  };
+
+  // ====================================================================
+  // SECURITY MODEL (read this before changing anything):
+  //   1) Every visitor is signed in anonymously via Firebase Auth before
+  //      any database call is attempted. The matching Realtime Database
+  //      rules (see firebase-rules.json provided alongside this file)
+  //      REQUIRE auth != null for all reads/writes to /liveLocations.
+  //      This is what stops random internet traffic / scanners from ever
+  //      touching the database — it is enforced server-side by Firebase,
+  //      not by this script, so it holds even if someone reads this file.
+  //   2) The PIN below is a SECOND, UI-LEVEL gate on top of that. It is
+  //      not cryptographically secure — it lives in client JS and anyone
+  //      who reads this source and is already auth'd (i.e. has loaded
+  //      this page) can find it. Its job is to keep a casual visitor to
+  //      the site from toggling sharing by accident/curiosity, not to
+  //      withstand a determined attacker. Don't rely on it alone for
+  //      anything more sensitive than "do the two of us trust whoever
+  //      has this page open".
+  //   Change SHARE_PIN to something only the two of you know.
+  // ====================================================================
+  const SHARE_PIN = "1318";
+
+  // Local (per-browser-tab) rate limiting on PIN guesses, mirroring the
+  // pattern used by the main password gate. Resets when the tab closes.
+  const MAX_ATTEMPTS_BEFORE_LOCK = 5;
+  const LOCK_MS = 30000;
+
+  const statusEl   = document.getElementById('liveShareStatus');
+  const gateEl     = document.getElementById('livePinGate');
+  const pinInput   = document.getElementById('livePinInput');
+  const pinBtn     = document.getElementById('livePinBtn');
+  const pinError   = document.getElementById('livePinError');
+  const controlsEl = document.getElementById('liveControls');
+  const whoYouBtn  = document.getElementById('liveWhoYou');
+  const whoHerBtn  = document.getElementById('liveWhoHer');
+  const toggleBtn  = document.getElementById('liveToggleBtn');
+  const hintEl     = document.getElementById('liveHint');
+
+  if (!statusEl || !gateEl) return;
+
+  let db = null;
+  let auth = null;
+  let firebaseReady = false;   // SDK initialized
+  let authReady = false;       // signed in anonymously, safe to read/write
+  let authFailed = false;      // signInAnonymously() rejected permanently
+  let watchId = null;
+  let selectedWho = null;
+  let sharing = false;
+  let liveMarkers = { you: null, her: null };
+  let mapRef = null;
+  let staleTimers = {};
+  let pinAttempts = 0;
+  let pinLockedUntil = 0;
+  let pinLockTimer = null;
+
+  // Tracks where each pin should sit on the map right now — only meaningful
+  // once real live data arrives; never shown to the person directly.
+  const DEFAULT_LATLNG = {
+    you: [25.2138, 75.8648],
+    her: [26.4499, 80.3319]
+  };
+  // What the "You are here" / "She is here" cards show before — or in the
+  // absence of — live location data. Intentionally NOT a fixed city name,
+  // so the page never claims someone is in Kota/Kanpur unless their actual
+  // shared GPS position says so.
+  const DEFAULT_CARD = {
+    you: { city: '–', sub: 'Location not shared yet' },
+    her: { city: '–', sub: 'Location not shared yet' }
+  };
+
+  const currentPositions = { you: DEFAULT_LATLNG.you.slice(), her: DEFAULT_LATLNG.her.slice() };
+  const isLiveNow      = { you: false, her: false };
+  // Raw last-seen Firebase payload for each person, regardless of whether
+  // we're currently allowed to *show* it (see the mutual-consent gate below).
+  const lastKnownData  = { you: null, her: null };
+  // Throttles reverse-geocoding so we're not hammering the API on every GPS tick.
+  const geocodeState = {
+    you: { lastTime: 0, lastPos: null },
+    her: { lastTime: 0, lastPos: null }
+  };
+
+  // Init Firebase + sign in anonymously. Nothing touches the database
+  // until signInAnonymously resolves — that's the real security boundary.
+  try {
+    if (firebaseConfig.apiKey !== "YOUR_API_KEY" && typeof firebase !== 'undefined') {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.database();
+      auth = firebase.auth();
+      firebaseReady = true;
+
+      auth.onAuthStateChanged((user) => {
+        authReady = !!user;
+        if (authReady && sessionStorage.getItem('liveShareUnlocked') === 'yes') {
+          unlockPanel();
+        }
+      });
+
+      auth.signInAnonymously().catch((e) => {
+        console.warn('Anonymous sign-in failed:', e);
+        authFailed = true;
+        if (gateEl.style.display !== 'none') {
+          pinError.textContent = 'Could not connect securely — please refresh and try again.';
+        }
+      });
+    }
+  } catch (e) {
+    console.warn('Firebase init failed:', e);
+  }
+
+  pinBtn.addEventListener('click', tryUnlock);
+  pinInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+
+  function startPinLockCountdown(ms) {
+    if (pinLockTimer) clearInterval(pinLockTimer);
+    pinBtn.disabled = true;
+    pinLockTimer = setInterval(() => {
+      const remaining = Math.ceil((pinLockedUntil - Date.now()) / 1000);
+      if (remaining <= 0) {
+        clearInterval(pinLockTimer);
+        pinError.textContent = '';
+        pinBtn.disabled = false;
+      } else {
+        pinError.textContent = `Too many attempts — try again in ${remaining}s`;
+      }
+    }, 500);
+  }
+
+  function tryUnlock() {
+    if (Date.now() < pinLockedUntil) return;
+
+    if (pinInput.value.trim() === SHARE_PIN) {
+      pinAttempts = 0;
+      sessionStorage.setItem('liveShareUnlocked', 'yes');
+      pinError.textContent = '';
+      unlockPanel();
+    } else {
+      pinAttempts++;
+      pinInput.value = '';
+      if (pinAttempts >= MAX_ATTEMPTS_BEFORE_LOCK) {
+        pinAttempts = 0;
+        pinLockedUntil = Date.now() + LOCK_MS;
+        startPinLockCountdown(LOCK_MS);
+      } else {
+        pinError.textContent = `Incorrect PIN (${MAX_ATTEMPTS_BEFORE_LOCK - pinAttempts} attempt(s) left)`;
+      }
+    }
+  }
+
+  function unlockPanel() {
+    if (authFailed) {
+      pinError.textContent = 'Could not connect securely — please refresh and try again.';
+      return;
+    }
+    if (!authReady) {
+      // PIN was right, but we're not securely connected yet — wait for auth,
+      // with a timeout so we never get stuck silently if sign-in fails.
+      pinError.textContent = '';
+      hintEl.textContent = 'Connecting securely…';
+      pinBtn.disabled = true;
+      const waitStarted = Date.now();
+      const waitForAuth = setInterval(() => {
+        if (authReady) {
+          clearInterval(waitForAuth);
+          pinBtn.disabled = false;
+          unlockPanel();
+        } else if (authFailed || Date.now() - waitStarted > 8000) {
+          clearInterval(waitForAuth);
+          pinBtn.disabled = false;
+          hintEl.textContent = '';
+          pinError.textContent = 'Could not connect securely — please refresh and try again.';
+        }
+      }, 200);
+      return;
+    }
+    gateEl.style.display = 'none';
+    controlsEl.style.display = 'flex';
+    if (!firebaseReady) {
+      hintEl.textContent = 'Firebase isn\'t configured yet — add your firebaseConfig in the script to enable live sharing.';
+      toggleBtn.disabled = true;
+    } else {
+      hintEl.textContent = 'Pick who you are, then start sharing. Keep this tab open for continuous tracking.';
+    }
+    listenForLiveLocations();
+  }
+
+  whoYouBtn.addEventListener('click', () => selectWho('you', whoYouBtn));
+  whoHerBtn.addEventListener('click', () => selectWho('her', whoHerBtn));
+
+  function selectWho(who, btn) {
+    // Switching roles mid-share is what lets a single GPS watch end up
+    // writing to the OTHER person's entry (because it always wrote to
+    // whatever "selectedWho" currently was). Block that: you must Stop
+    // Sharing first, then pick the other role, then Start Sharing again —
+    // which asks for a fresh location fix under that new role.
+    if (sharing) return;
+
+    selectedWho = who;
+    [whoYouBtn, whoHerBtn].forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    toggleBtn.disabled = !(firebaseReady && authReady);
+    refreshVisibility();
+  }
+
+  toggleBtn.addEventListener('click', () => {
+    if (!sharing) startSharing();
+    else stopSharing();
+  });
+
+  function startSharing() {
+    if (!selectedWho || !navigator.geolocation) return;
+    if (!firebaseReady || !authReady) {
+      hintEl.textContent = 'Not securely connected yet — please wait a moment and try again.';
+      return;
+    }
+
+    // Lock in WHO this session is sharing as right now. Every write below
+    // uses this fixed value rather than re-reading the mutable selectedWho
+    // variable, so this watch can never end up writing your location into
+    // the other person's entry — even in edge cases.
+    const myWho = selectedWho;
+    whoYouBtn.disabled = true;
+    whoHerBtn.disabled = true;
+
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        db.ref('liveLocations/' + myWho).set({
+          lat: latitude,
+          lng: longitude,
+          accuracy: accuracy,
+          ts: Date.now()
+        }).catch((e) => {
+          console.warn('Location write failed:', e);
+          hintEl.textContent = 'Couldn\'t update your location (connection issue). Retrying automatically.';
+        });
+        const wasSharing = sharing;
+        sharing = true;
+        statusEl.textContent = 'Sharing';
+        statusEl.classList.add('on');
+        toggleBtn.textContent = 'Stop Sharing My Location';
+        toggleBtn.classList.add('sharing');
+        hintEl.textContent = 'Your live location is updating on the map. Keep this tab open.';
+        // The moment I start sharing my own location, I "unlock" being able
+        // to see hers (and she unlocks seeing mine) — mutual consent only.
+        if (!wasSharing) refreshVisibility();
+      },
+      (err) => {
+        hintEl.textContent = 'Couldn\'t get your location: ' + err.message + '. Check your phone\'s location permission for this site.';
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+    );
+  }
+
+  function stopSharing() {
+    if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    sharing = false;
+    statusEl.textContent = 'Off';
+    statusEl.classList.remove('on');
+    toggleBtn.textContent = 'Start Sharing My Location';
+    toggleBtn.classList.remove('sharing');
+    hintEl.textContent = 'Sharing stopped. Tap to resume anytime, or pick the other role above.';
+    // Switching roles is only allowed once sharing is fully stopped.
+    whoYouBtn.disabled = false;
+    whoHerBtn.disabled = false;
+    // Stopping my own sharing re-locks her pin until I share again.
+    refreshVisibility();
+  }
+
+  // ── Listen for both people's live locations and render on the map ──
+  function listenForLiveLocations() {
+    function waitForMap() {
+      if (window.__memoryMap) {
+        mapRef = window.__memoryMap;
+        attachListeners();
+      } else {
+        setTimeout(waitForMap, 200);
+      }
+    }
+    waitForMap();
+  }
+
+  function attachListeners() {
+    ['you', 'her'].forEach(who => {
+      db.ref('liveLocations/' + who).on('value', (snap) => {
+        lastKnownData[who] = snap.val();
+        refreshVisibility();
+      });
+    });
+  }
+
+  // ── Mutual-consent gate ──
+  // You can always see your OWN pin once it exists. You can only see the
+  // OTHER person's pin if (a) their location data is actually fresh right
+  // now — not a stale leftover from some earlier session — AND (b) you
+  // yourself are currently sharing your location too. Sharing has to go
+  // both ways, with both sides genuinely live, before either of you is
+  // visible to the other. Re-run this any time selectedWho, sharing, or
+  // the underlying Firebase data changes.
+  const LIVE_FRESHNESS_MS = 3 * 60 * 1000; // 3 minutes
+
+  function refreshVisibility() {
+    ['you', 'her'].forEach(who => {
+      const data = lastKnownData[who];
+      const isFresh = !!data && (Date.now() - data.ts < LIVE_FRESHNESS_MS);
+      const isSelf = (who === selectedWho);
+      const allowed = isSelf ? isFresh : (isFresh && sharing);
+
+      if (data && allowed) {
+        renderLiveMarker(who, data);
+      } else if (data && isFresh && !allowed) {
+        hideMarker(who, 'locked');     // they're sharing, but I haven't reciprocated yet
+      } else {
+        hideMarker(who, 'no-data');    // stale, or they've never shared at all
+      }
+    });
+  }
+
+  function hideMarker(who, reason) {
+    if (liveMarkers[who] && mapRef) {
+      mapRef.removeLayer(liveMarkers[who]);
+    }
+    liveMarkers[who] = null;
+
+    if (staleTimers[who]) {
+      clearInterval(staleTimers[who]);
+      delete staleTimers[who];
+    }
+
+    if (isLiveNow[who]) {
+      isLiveNow[who] = false;
+      currentPositions[who] = DEFAULT_LATLNG[who].slice();
+      if (typeof window.__updateDistanceVisual === 'function') {
+        window.__updateDistanceVisual(currentPositions.you, currentPositions.her, isLiveNow.you && isLiveNow.her);
+      }
+    }
+
+    resetCard(who, reason === 'locked');
+  }
+
+  function renderLiveMarker(who, data) {
+    const color = who === 'you' ? '#B76E79' : '#9080c8';
+    const label = who === 'you' ? 'You · Live' : 'Her · Live';
+    const emoji = who === 'you' ? '🏠' : '🌸';
+    const pos = [data.lat, data.lng];
+    const isFirstAppearance = !liveMarkers[who];
+
+    currentPositions[who] = pos;
+    isLiveNow[who] = true;
+
+    if (liveMarkers[who]) {
+      liveMarkers[who].setLatLng(pos);
+    } else {
+      const icon = makeLivePinIcon(color, emoji);
+      liveMarkers[who] = L.marker(pos, { icon, zIndexOffset: 1000 })
+        .addTo(mapRef)
+        .bindPopup(`<b>${emoji} ${label}</b><br><span class="live-marker-tag" id="liveTag-${who}"></span>`, { maxWidth: 200 });
+    }
+
+    // Never leave the "–" / locked placeholder up once we actually have a
+    // live position — show something immediately while the real city name
+    // (from the GPS coords below) is still loading.
+    if (isFirstAppearance) setCard(who, 'Locating…', '📡 fetching live city name');
+
+    updateStaleTag(who, data.ts);
+    clearInterval(staleTimers[who]);
+    staleTimers[who] = setInterval(() => updateStaleTag(who, data.ts), 5000);
+
+    // Move the connecting line/distance badge to match the real pins,
+    // and report whether the distance is live (at least one side tracked).
+    if (typeof window.__updateDistanceVisual === 'function') {
+      window.__updateDistanceVisual(
+        currentPositions.you,
+        currentPositions.her,
+        isLiveNow.you && isLiveNow.her
+      );
+    }
+
+    maybeUpdateCityLabel(who, pos);
+  }
+
+  // Same teardrop pin used for the static memory markers, plus a pulsing
+  // halo so it reads clearly as "this is moving / live" rather than fixed.
+  function makeLivePinIcon(color, emoji) {
+    const size = 42;
+    if (typeof window.__makeMapPinIcon === 'function') {
+      const base = window.__makeMapPinIcon(color, emoji, size);
+      const wrapped = `<div class="live-pulse-wrap" style="width:${size}px;height:${size+10}px;">
+          <div class="live-pulse-ring" style="background:${color};"></div>
+          ${base.options.html}
+        </div>`;
+      return L.divIcon({
+        html: wrapped,
+        className: '',
+        iconSize: [size, size + 10],
+        iconAnchor: [size / 2, size + 10],
+        popupAnchor: [0, -(size + 10)]
+      });
+    }
+    // Fallback if the map module hasn't loaded its icon factory yet
+    return L.divIcon({
+      html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:3px solid #fff;box-shadow:0 0 0 4px ${color}55,0 4px 10px rgba(0,0,0,0.3);"></div>`,
+      className: '',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9]
+    });
+  }
+
+  // ── "You are here" / "She is here" cards ──
+  function setCard(who, cityText, subText) {
+    const cityEl = document.getElementById(who === 'you' ? 'distYouCity' : 'distHerCity');
+    const subEl  = document.getElementById(who === 'you' ? 'distYouSub'  : 'distHerSub');
+    if (cityEl) cityEl.textContent = cityText;
+    if (subEl)  subEl.textContent = subText;
+  }
+
+  function resetCard(who, locked) {
+    const d = DEFAULT_CARD[who];
+    setCard(who, d.city, locked ? '🔒 Share your location to reveal' : d.sub);
+    geocodeState[who].lastPos = null;
+    geocodeState[who].lastTime = 0;
+  }
+
+  function localHaversineKm(a, b) {
+    if (typeof window.__haversineKm === 'function') return window.__haversineKm(a, b);
+    const R = 6371;
+    const dLat = (b[0] - a[0]) * Math.PI / 180;
+    const dLng = (b[1] - a[1]) * Math.PI / 180;
+    const lat1 = a[0] * Math.PI / 180;
+    const lat2 = b[0] * Math.PI / 180;
+    const x = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+  }
+
+  // Resolves the live GPS point to a city name (see reverseGeocodeCity
+  // below for the actual lookup). Throttled so a fast-moving GPS feed
+  // doesn't spam the lookup service on every tick.
+  async function maybeUpdateCityLabel(who, pos) {
+    const state = geocodeState[who];
+    const now = Date.now();
+    const movedFar = !state.lastPos || localHaversineKm(state.lastPos, pos) > 0.5;
+    const isStale = now - state.lastTime > 45000;
+    if (!movedFar && !isStale) return;
+
+    state.lastTime = now;
+    state.lastPos = pos.slice();
+
+    const city = await reverseGeocodeCity(pos[0], pos[1]);
+    if (city) setCard(who, city, '🔴 Live location');
+  }
+
+  // Reverse-geocodes the live GPS point into a city name. BigDataCloud's
+  // reverse-geocode-client endpoint is free, needs no API key, and is built
+  // specifically for client-side calls like this one — it typically replies
+  // in a few hundred ms. We give it a short timeout and only fall back to
+  // the slower Nominatim API if it doesn't answer in time.
+  async function reverseGeocodeCity(lat, lng) {
+    const fast = await tryReverseGeocode(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+      (data) => {
+        const city = data.city || data.locality;
+        const state = data.principalSubdivision;
+        if (city && state) return `${city}, ${state}`;
+        return city || null;
+      },
+      4000
+    );
+    if (fast) return fast;
+
+    return tryReverseGeocode(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=10&addressdetails=1`,
+      (data) => {
+        const addr = data.address || {};
+        const city = addr.city || addr.town || addr.village || addr.county || addr.state_district;
+        const state = addr.state;
+        if (city && state) return `${city}, ${state}`;
+        return city || null;
+      },
+      6000
+    );
+  }
+
+  // Shared helper: fetch a reverse-geocode URL with a hard timeout (so a
+  // slow/unreachable provider can never stall the city lookup for long),
+  // and hand the parsed JSON to `extract` to pull out a city string.
+  async function tryReverseGeocode(url, extract, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' }, signal: controller.signal });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return extract(data);
+    } catch (e) {
+      console.warn('Reverse geocode lookup failed:', url, e);
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function updateStaleTag(who, ts) {
+    const tagEl = document.getElementById('liveTag-' + who);
+    if (!tagEl) return;
+    const secs = Math.round((Date.now() - ts) / 1000);
+    let text;
+    if (secs < 60) text = `updated ${secs}s ago`;
+    else if (secs < 3600) text = `updated ${Math.round(secs/60)}m ago`;
+    else text = `updated ${Math.round(secs/3600)}h ago — may be stale`;
+    tagEl.textContent = text;
+  }
+
+})();
 (function initCountdown() {
 
   function pad(n) { return String(Math.max(0, n)).padStart(2, '0'); }
