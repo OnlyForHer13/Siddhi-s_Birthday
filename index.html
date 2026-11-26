@@ -9,7 +9,7 @@
            script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://www.gstatic.com https://*.firebaseio.com;
            style-src  'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com;
            font-src   'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com;
-           img-src    'self' data: https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://*.basemaps.cartocdn.com https://cartodb-basemaps-a.global.ssl.fastly.net https://cartodb-basemaps-b.global.ssl.fastly.net https://cartodb-basemaps-c.global.ssl.fastly.net https://cartodb-basemaps-d.global.ssl.fastly.net;
+           img-src    'self' data: https://server.arcgisonline.com https://*.tile.openstreetmap.org https://cdnjs.cloudflare.com https://*.basemaps.cartocdn.com https://cartodb-basemaps-a.global.ssl.fastly.net https://cartodb-basemaps-b.global.ssl.fastly.net https://cartodb-basemaps-c.global.ssl.fastly.net https://cartodb-basemaps-d.global.ssl.fastly.net;
            connect-src 'self' https://*.basemaps.cartocdn.com https://*.tile.openstreetmap.org https://nominatim.openstreetmap.org https://api.bigdatacloud.net https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com;
            media-src 'self' data: blob:;
            frame-src 'self' blob: data:;
@@ -7434,17 +7434,15 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
   // Also re-invalidate on window resize
   window.addEventListener('resize', forceRefresh, { passive: true });
 
-  // Tile layers with automatic fallback (Carto Voyager -> Carto Light -> OpenStreetMap)
+  // Tile layers with automatic fallback (OpenStreetMap -> Esri). Both are free, no API key.
   // referrerPolicy is needed because the page sets <meta name="referrer" content="no-referrer">,
   // and tile servers (especially OSM) reject tile requests that have no Referer.
   const tileOpts = { maxZoom: 19, referrerPolicy: 'origin' };
   const TILE_SOURCES = [
-    { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-      opts: { subdomains: 'abcd', attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors' } },
-    { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
-      opts: { subdomains: 'abcd', attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors' } },
     { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-      opts: { subdomains: 'abc', attribution: '&copy; OpenStreetMap contributors' } }
+      opts: { subdomains: 'abc', attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' } },
+    { url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      opts: { attribution: 'Tiles &copy; Esri' } }
   ];
   let tileIdx = 0, tileLayer = null, tileErrors = 0, tileLoaded = 0;
 
