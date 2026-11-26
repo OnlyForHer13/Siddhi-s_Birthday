@@ -7434,12 +7434,37 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
   // Also re-invalidate on window resize
   window.addEventListener('resize', forceRefresh, { passive: true });
 
-  // Soft warm tile layer — CartoDB Voyager (no API key needed)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors',
-    subdomains: 'abcd',
-    maxZoom: 19
-  }).addTo(map);
+  // Tile layers with automatic fallback (Carto Voyager -> Carto Light -> OpenStreetMap)
+  // referrerPolicy is needed because the page sets <meta name="referrer" content="no-referrer">,
+  // and tile servers (especially OSM) reject tile requests that have no Referer.
+  const tileOpts = { maxZoom: 19, referrerPolicy: 'origin' };
+  const TILE_SOURCES = [
+    { url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+      opts: { subdomains: 'abcd', attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors' } },
+    { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+      opts: { subdomains: 'abcd', attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap contributors' } },
+    { url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      opts: { subdomains: 'abc', attribution: '&copy; OpenStreetMap contributors' } }
+  ];
+  let tileIdx = 0, tileLayer = null, tileErrors = 0, tileLoaded = 0;
+
+  function addTiles() {
+    if (tileLayer) { map.removeLayer(tileLayer); }
+    const src = TILE_SOURCES[tileIdx];
+    tileErrors = 0; tileLoaded = 0;
+    tileLayer = L.tileLayer(src.url, Object.assign({}, tileOpts, src.opts));
+    tileLayer.on('tileload', () => { tileLoaded++; });
+    tileLayer.on('tileerror', () => {
+      tileErrors++;
+      // If several tiles fail and none have loaded, switch to the next provider
+      if (tileErrors >= 4 && tileLoaded === 0 && tileIdx < TILE_SOURCES.length - 1) {
+        tileIdx++;
+        addTiles();
+      }
+    });
+    tileLayer.addTo(map);
+  }
+  addTiles();
 
   // ── Custom pin SVG factory ──
   function makeIcon(color, emoji, size) {
@@ -7689,6 +7714,27 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
   let pinLockedUntil = 0;
   let pinLockTimer = null;
 
+  // Added state for reliable sharing
+  let listenersAttached = false;
+  let serverOffset = 0;          // ms: Firebase server time minus this device's clock
+  let heartbeatTimer = null;     // re-writes the last fix so a stationary phone stays "live"
+  let myRef = null;              // db ref of the entry this session writes to
+  let lastFix = null;            // latest GPS fix from this device
+  let lastWriteAt = 0;
+  const MIN_WRITE_GAP_MS = 3000;
+  const HEARTBEAT_MS = 30000;
+
+  // Phones' clocks differ, so freshness must be judged on server time.
+  function serverNow() { return Date.now() + serverOffset; }
+
+  // Never trust shape of remote data (bad/partial writes would crash Leaflet).
+  function isValidFix(v) {
+    return !!v &&
+      typeof v.lat === 'number' && typeof v.lng === 'number' && typeof v.ts === 'number' &&
+      isFinite(v.lat) && isFinite(v.lng) &&
+      Math.abs(v.lat) <= 90 && Math.abs(v.lng) <= 180;
+  }
+
   // Tracks where each pin should sit on the map right now — only meaningful
   // once real live data arrives; never shown to the person directly.
   const DEFAULT_LATLNG = {
@@ -7721,6 +7767,7 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
     if (firebaseConfig.apiKey !== "YOUR_API_KEY" && typeof firebase !== 'undefined') {
       firebase.initializeApp(firebaseConfig);
       db = firebase.database();
+      db.ref('.info/serverTimeOffset').on('value', (s) => { serverOffset = Number(s.val()) || 0; });
       auth = firebase.auth();
       firebaseReady = true;
 
@@ -7814,7 +7861,7 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
       hintEl.textContent = 'Firebase isn\'t configured yet — add your firebaseConfig in the script to enable live sharing.';
       toggleBtn.disabled = true;
     } else {
-      hintEl.textContent = 'Pick who you are, then start sharing. Keep this tab open for continuous tracking.';
+      if (watchId === null) hintEl.textContent = 'Pick who you are, then start sharing. Keep this tab open for continuous tracking.';
     }
     listenForLiveLocations();
   }
@@ -7838,68 +7885,114 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
   }
 
   toggleBtn.addEventListener('click', () => {
-    if (!sharing) startSharing();
+    if (watchId === null) startSharing();
     else stopSharing();
   });
 
+  function writeLocation(force) {
+    if (!myRef || !lastFix) return;
+    const now = Date.now();
+    if (!force && now - lastWriteAt < MIN_WRITE_GAP_MS) return;
+    lastWriteAt = now;
+    myRef.set({
+      lat: lastFix.lat,
+      lng: lastFix.lng,
+      accuracy: lastFix.accuracy,
+      ts: firebase.database.ServerValue.TIMESTAMP   // server clock, not this phone's
+    }).catch((e) => {
+      console.warn('Location write failed:', e);
+      hintEl.textContent = 'Couldn\'t update your location (' + (e && e.code === 'PERMISSION_DENIED' ? 'database rules blocked the write' : 'connection issue') + '). Retrying automatically.';
+    });
+  }
+
   function startSharing() {
-    if (!selectedWho || !navigator.geolocation) return;
+    if (watchId !== null) return;
+    if (!selectedWho) { hintEl.textContent = 'Pick who you are first.'; return; }
+    if (!window.isSecureContext) {
+      hintEl.textContent = 'Location sharing needs a secure (https) page. Open the site via its https:// link.';
+      return;
+    }
+    if (!navigator.geolocation) {
+      hintEl.textContent = 'This browser doesn\'t support location sharing.';
+      return;
+    }
     if (!firebaseReady || !authReady) {
       hintEl.textContent = 'Not securely connected yet — please wait a moment and try again.';
       return;
     }
 
-    // Lock in WHO this session is sharing as right now. Every write below
-    // uses this fixed value rather than re-reading the mutable selectedWho
-    // variable, so this watch can never end up writing your location into
-    // the other person's entry — even in edge cases.
+    // Lock in WHO this session is sharing as, so a write can never land in
+    // the other person's entry.
     const myWho = selectedWho;
+    myRef = db.ref('liveLocations/' + myWho);
     whoYouBtn.disabled = true;
     whoHerBtn.disabled = true;
+    toggleBtn.textContent = 'Getting your location… (tap to cancel)';
+    hintEl.textContent = 'Waiting for your location — allow the permission prompt if you see one.';
 
     watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
-        db.ref('liveLocations/' + myWho).set({
-          lat: latitude,
-          lng: longitude,
-          accuracy: accuracy,
-          ts: Date.now()
-        }).catch((e) => {
-          console.warn('Location write failed:', e);
-          hintEl.textContent = 'Couldn\'t update your location (connection issue). Retrying automatically.';
-        });
+        lastFix = { lat: latitude, lng: longitude, accuracy: accuracy };
         const wasSharing = sharing;
-        sharing = true;
-        statusEl.textContent = 'Sharing';
-        statusEl.classList.add('on');
-        toggleBtn.textContent = 'Stop Sharing My Location';
-        toggleBtn.classList.add('sharing');
-        hintEl.textContent = 'Your live location is updating on the map. Keep this tab open.';
-        // The moment I start sharing my own location, I "unlock" being able
-        // to see hers (and she unlocks seeing mine) — mutual consent only.
-        if (!wasSharing) refreshVisibility();
+        writeLocation(!wasSharing);
+
+        if (!wasSharing) {
+          sharing = true;
+          // If this tab dies / loses connection, the server clears my entry
+          // so a stale pin is never left behind. The heartbeat re-writes it
+          // once the connection is back.
+          myRef.onDisconnect().remove().catch(() => {});
+          // watchPosition only fires when position CHANGES, so a phone that
+          // isn't moving would go "stale" after 3 min. Heartbeat prevents it.
+          heartbeatTimer = setInterval(() => writeLocation(true), HEARTBEAT_MS);
+          statusEl.textContent = 'Sharing';
+          statusEl.classList.add('on');
+          toggleBtn.textContent = 'Stop Sharing My Location';
+          toggleBtn.classList.add('sharing');
+          hintEl.textContent = 'Your live location is updating on the map. Keep this tab open.';
+          // Mutual consent: sharing mine unlocks seeing hers.
+          refreshVisibility();
+        }
       },
       (err) => {
-        hintEl.textContent = 'Couldn\'t get your location: ' + err.message + '. Check your phone\'s location permission for this site.';
+        if (err.code === err.PERMISSION_DENIED) {
+          // Fully reset the UI — previously the role buttons stayed disabled forever here.
+          stopSharing();
+          hintEl.textContent = 'Location permission was denied. Allow location for this site in your browser/phone settings, then try again.';
+        } else if (err.code === err.POSITION_UNAVAILABLE) {
+          hintEl.textContent = 'Your location is unavailable right now. Still trying…';
+        } else {
+          hintEl.textContent = 'Still waiting for a GPS fix… (try going near a window or enabling high-accuracy location)';
+        }
       },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
     );
   }
 
   function stopSharing() {
     if (watchId !== null) navigator.geolocation.clearWatch(watchId);
     watchId = null;
+    if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+    lastFix = null;
+
+    // Remove my location from the database — previously it stayed there
+    // and the other person kept seeing it for minutes after "Stop".
+    if (myRef) {
+      const ref = myRef;
+      myRef = null;
+      ref.remove().catch((e) => console.warn('Could not clear location:', e));
+      ref.onDisconnect().cancel().catch(() => {});
+    }
+
     sharing = false;
     statusEl.textContent = 'Off';
     statusEl.classList.remove('on');
     toggleBtn.textContent = 'Start Sharing My Location';
     toggleBtn.classList.remove('sharing');
     hintEl.textContent = 'Sharing stopped. Tap to resume anytime, or pick the other role above.';
-    // Switching roles is only allowed once sharing is fully stopped.
     whoYouBtn.disabled = false;
     whoHerBtn.disabled = false;
-    // Stopping my own sharing re-locks her pin until I share again.
     refreshVisibility();
   }
 
@@ -7917,12 +8010,21 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
   }
 
   function attachListeners() {
+    if (listenersAttached) return;     // unlockPanel can run more than once
+    listenersAttached = true;
     ['you', 'her'].forEach(who => {
       db.ref('liveLocations/' + who).on('value', (snap) => {
-        lastKnownData[who] = snap.val();
+        const v = snap.val();
+        lastKnownData[who] = isValidFix(v) ? v : null;
         refreshVisibility();
+      }, (err) => {
+        console.warn('Live location read failed:', err);
+        hintEl.textContent = 'Can\'t read live locations (database rules denied access). Check your Firebase rules.';
       });
     });
+    // Freshness used to be checked only when data changed, so a person who
+    // silently stopped stayed on the map forever. Re-check regularly.
+    setInterval(refreshVisibility, 10000);
   }
 
   // ── Mutual-consent gate ──
@@ -7938,7 +8040,7 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
   function refreshVisibility() {
     ['you', 'her'].forEach(who => {
       const data = lastKnownData[who];
-      const isFresh = !!data && (Date.now() - data.ts < LIVE_FRESHNESS_MS);
+      const isFresh = !!data && (serverNow() - data.ts < LIVE_FRESHNESS_MS);
       const isSelf = (who === selectedWho);
       const allowed = isSelf ? isFresh : (isFresh && sharing);
 
@@ -8082,7 +8184,7 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
     state.lastPos = pos.slice();
 
     const city = await reverseGeocodeCity(pos[0], pos[1]);
-    if (city) setCard(who, city, '🔴 Live location');
+    if (city && isLiveNow[who]) setCard(who, city, '🔴 Live location');
   }
 
   // Reverse-geocodes the live GPS point into a city name. BigDataCloud's
@@ -8138,7 +8240,7 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
   function updateStaleTag(who, ts) {
     const tagEl = document.getElementById('liveTag-' + who);
     if (!tagEl) return;
-    const secs = Math.round((Date.now() - ts) / 1000);
+    const secs = Math.max(0, Math.round((serverNow() - ts) / 1000));
     let text;
     if (secs < 60) text = `updated ${secs}s ago`;
     else if (secs < 3600) text = `updated ${Math.round(secs/60)}m ago`;
