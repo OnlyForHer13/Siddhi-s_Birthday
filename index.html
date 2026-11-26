@@ -2239,7 +2239,7 @@
   .ann-modal-box { animation: lightboxIn 0.4s cubic-bezier(0.34,1.56,0.64,1); }
   .ann-modal video { display: block; max-height: 90vh; max-width: 92vw; border-radius: 20px; background: #000; box-shadow: 0 32px 80px rgba(0,0,0,0.5); }
   .ann-modal iframe { display: block; height: 92vh; width: min(94vw, 50vh); min-width: 280px; border: 0; border-radius: 20px; background: #14070f; box-shadow: 0 32px 80px rgba(0,0,0,0.5); }
-  .ann-loading { color: #fff; font-size: 0.8rem; letter-spacing: 3px; text-transform: uppercase; }
+  .ann-loading { max-width: 80vw; text-align: center; line-height: 1.8; word-break: break-all; color: #fff; font-size: 0.8rem; letter-spacing: 3px; text-transform: uppercase; }
 
   /* ─── FOOTER ─── */
   footer {
@@ -7231,19 +7231,36 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
   const KP = ['0lMWiCWKCcoyfWE','eJ7a0k7JnsXj7B+','CvtetOZJEHpH4='];
   const urls = {};
   const pending = {};
-  async function loadMedia(key, file, mime) {
+  async function fetchBytes(file) {
+    const url = new URL(file, document.baseURI).href;
+    const res = await fetch(url, { cache: 'no-cache' });
+    if (!res.ok) { const err = new Error('HTTP ' + res.status + ' for ' + url); err.status = res.status; throw err; }
+    return new Uint8Array(await res.arrayBuffer());
+  }
+  async function loadMedia(key, file, mime, plainFallback) {
     if (urls[key]) return urls[key];
     if (pending[key]) return pending[key];
     pending[key] = (async () => {
       const mc = document.getElementById('main-content');
-      if (!mc || mc.style.display === 'none') throw new Error('locked');
-      const kb = Uint8Array.from(atob(KP.join('')), c => c.charCodeAt(0));
-      const ck = await crypto.subtle.importKey('raw', kb, 'AES-GCM', false, ['decrypt']);
-      const res = await fetch(file, { cache: 'force-cache' });
-      if (!res.ok) throw new Error('missing ' + file);
-      const buf = new Uint8Array(await res.arrayBuffer());
-      const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(0, 12) }, ck, buf.slice(12));
-      urls[key] = URL.createObjectURL(new Blob([plain], { type: mime }));
+      if (!mc || mc.style.display === 'none') throw new Error('Site is still locked');
+      let blob;
+      try {
+        const buf = await fetchBytes(file);
+        if (!window.crypto || !crypto.subtle) throw new Error('Decryption needs https (or localhost)');
+        const kb = Uint8Array.from(atob(KP.join('')), c => c.charCodeAt(0));
+        const ck = await crypto.subtle.importKey('raw', kb, 'AES-GCM', false, ['decrypt']);
+        let plain;
+        try {
+          plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(0, 12) }, ck, buf.slice(12));
+        } catch (e) { throw new Error('Could not decrypt ' + file + ' (file damaged or not the original .bin)'); }
+        blob = new Blob([plain], { type: mime });
+      } catch (e) {
+        // Fallback: the original, un-encrypted file placed in /media
+        if (!plainFallback) throw e;
+        try { const buf2 = await fetchBytes(plainFallback); blob = new Blob([buf2], { type: mime }); }
+        catch (e2) { throw new Error(e.message + '  |  fallback: ' + e2.message); }
+      }
+      urls[key] = URL.createObjectURL(blob);
       return urls[key];
     })();
     try { return await pending[key]; } finally { delete pending[key]; }
@@ -7263,14 +7280,14 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
     try {
       if (!vEl.src) {
         vEl.style.display = 'none'; ld.style.display = ''; ld.textContent = 'Unwrapping our memory ♡';
-        vEl.src = await loadMedia('video', 'media/m1.bin', 'video/mp4');
+        vEl.src = await loadMedia('video', 'media/m1.bin', 'video/mp4', 'media/first_year.mp4');
       }
       ld.style.display = 'none'; vEl.style.display = '';
       if (!vModal.classList.contains('active')) return;
       vEl.currentTime = 0; vEl.play().catch(() => {});
     } catch (e) {
       vEl.style.display = 'none'; ld.style.display = '';
-      ld.textContent = 'Couldn\u2019t load the video — check that the media folder is uploaded.';
+      ld.textContent = 'Couldn\u2019t load the video — ' + e.message;
     }
   }
   function closeVideo() {
@@ -7286,13 +7303,13 @@ observe('.music-anim', { threshold: 0.15, stagger: 110, baseDelay: 0 });
     document.body.style.overflow = 'hidden';
     try {
       sFrame.style.display = 'none'; ld.style.display = ''; ld.textContent = 'Unwrapping our memory ♡';
-      const u = await loadMedia('show', 'media/m2.bin', 'text/html;charset=utf-8');
+      const u = await loadMedia('show', 'media/m2.bin', 'text/html;charset=utf-8', 'media/two_years_of_us.html');
       if (!sModal.classList.contains('active')) return;
       sFrame.style.display = ''; ld.style.display = 'none';
       sFrame.src = u;
       sFrame.addEventListener('load', () => { try { sFrame.focus(); } catch (e) {} }, { once: true });
     } catch (e) {
-      ld.textContent = 'Couldn\u2019t load the slideshow — check that the media folder is uploaded.';
+      ld.textContent = 'Couldn\u2019t load the slideshow — ' + e.message;
     }
   }
   function closeShow() {
